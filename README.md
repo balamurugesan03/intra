@@ -1,4 +1,4 @@
-# BuildPro — Construction & Interior Management ERP
+# Intra Interiors — Construction & Interior Management ERP
 
 MERN stack (MongoDB · Express 5 · React 19 + Vite 7 · Node) with Tailwind CSS 4, TanStack Query and Recharts.
 

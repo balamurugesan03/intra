@@ -11,12 +11,10 @@ import CommandPalette from './CommandPalette';
 function Logo() {
   return (
     <Link to="/" className="flex items-center gap-2.5">
-      <div className="flex size-8 items-center justify-center rounded-lg bg-gradient-to-br from-brand-500 to-brand-700 shadow-sm shadow-brand-600/30">
-        <svg viewBox="0 0 32 32" className="size-5"><path d="M8 23V13l8-5 8 5v10h-5v-6h-6v6z" fill="#fff" /></svg>
-      </div>
+      <img src={`${import.meta.env.BASE_URL}logo-192.png`} alt="Intra Interiors" className="size-14 shrink-0 mix-blend-lighten" />
       <div className="leading-tight">
-        <div className="text-[15px] font-bold tracking-tight text-white">BuildPro</div>
-        <div className="text-[10px] font-medium tracking-wide text-slate-400 uppercase">Construction · Interiors</div>
+        <div className="text-gold text-lg font-bold tracking-wide">Intra Interiors</div>
+        <div className="text-[10px] font-medium tracking-[0.2em] text-brand-200/60 uppercase">Construction · Interiors</div>
       </div>
     </Link>
   );
@@ -26,18 +24,18 @@ function Sidebar({ onNavigate }) {
   const { can, user } = useAuth();
   const groups = NAV.map((g) => ({ ...g, items: g.items.filter((i) => can(i.module)) })).filter((g) => g.items.length);
   return (
-    <div className="flex h-full flex-col bg-slate-900 dark:bg-slate-950 dark:border-r dark:border-slate-800">
-      <div className="flex h-16 shrink-0 items-center px-5"><Logo /></div>
-      <nav className="flex-1 space-y-5 overflow-y-auto px-3 pt-2 pb-6">
+    <div className="flex h-full flex-col bg-gradient-to-b from-neutral-950 via-[#0d0b07] to-neutral-950 border-r border-brand-900/40">
+      <div className="flex h-24 shrink-0 items-center border-b border-brand-400/10 px-5"><Logo /></div>
+      <nav className="flex-1 space-y-5 overflow-y-auto px-3 pt-4 pb-6">
         {groups.map((g) => (
           <div key={g.group}>
-            <p className="mb-1.5 px-3 text-[10px] font-semibold tracking-widest text-slate-500 uppercase">{g.group}</p>
+            <p className="mb-1.5 px-3 text-[10px] font-semibold tracking-widest text-brand-300/50 uppercase">{g.group}</p>
             <div className="space-y-0.5">
               {g.items.map((i) => (
                 <NavLink key={i.to} to={i.to} end={i.end} onClick={onNavigate}
                   className={({ isActive }) => cn(
                     'group flex items-center gap-3 rounded-lg px-3 py-2 text-[13px] font-medium transition',
-                    isActive ? 'bg-brand-600 text-white shadow-sm shadow-brand-900/40' : 'text-slate-400 hover:bg-white/5 hover:text-white',
+                    isActive ? 'bg-gold text-neutral-950 font-semibold shadow-md shadow-brand-500/25' : 'text-neutral-400 hover:bg-brand-400/10 hover:text-brand-200',
                   )}>
                   <i.icon className="size-4 shrink-0" />
                   <span className="truncate">{i.label}</span>
@@ -47,8 +45,8 @@ function Sidebar({ onNavigate }) {
           </div>
         ))}
       </nav>
-      <div className="border-t border-white/5 p-3">
-        <div className="flex items-center gap-3 rounded-lg bg-white/5 px-3 py-2.5">
+      <div className="border-t border-brand-400/10 p-3">
+        <div className="flex items-center gap-3 rounded-lg bg-brand-400/5 px-3 py-2.5 ring-1 ring-brand-400/10">
           <Avatar name={user?.name} className="size-8" />
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-medium text-white">{user?.name}</p>

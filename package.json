@@ -2,7 +2,7 @@
   "name": "buildpro",
   "version": "1.0.0",
   "private": true,
-  "description": "BuildPro – Construction & Interior Management ERP (MERN)",
+  "description": "Intra Interiors – Construction & Interior Management ERP (MERN)",
   "scripts": {
     "install:all": "npm install && npm --prefix server install && npm --prefix client install",
     "dev": "concurrently -n api,web -c blue,magenta \"npm --prefix server run dev\" \"npm --prefix client run dev\"",

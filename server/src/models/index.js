@@ -12,7 +12,7 @@ export * from './finance.js';
 const settingSchema = new mongoose.Schema(
   {
     key: { type: String, default: 'company', unique: true },
-    companyName: { type: String, default: 'BuildPro Constructions & Interiors' },
+    companyName: { type: String, default: 'Intra Interiors' },
     tagline: { type: String, default: 'Design · Build · Deliver' },
     address: { type: String, default: '' },
     phone: { type: String, default: '' },

@@ -104,7 +104,7 @@ export default function Dashboard() {
                 <Tooltip content={<ChartTooltip />} cursor={{ fill: 'rgba(148,163,184,.12)' }} />
                 <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 12 }} />
                 <Bar dataKey="inflow" name="Received" fill="#10b981" radius={[6, 6, 0, 0]} maxBarSize={28} />
-                {!isExternal && <Bar dataKey="outflow" name="Spent" fill="#f97316" radius={[6, 6, 0, 0]} maxBarSize={28} />}
+                {!isExternal && <Bar dataKey="outflow" name="Spent" fill="#c99a1e" radius={[6, 6, 0, 0]} maxBarSize={28} />}
               </BarChart>
             </ResponsiveContainer>
           </div>

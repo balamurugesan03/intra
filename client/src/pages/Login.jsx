@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ArrowRight, Building2, CheckCircle2, Lock, Mail } from 'lucide-react';
+import { ArrowRight, CheckCircle2, Lock, Mail } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { Button, Field } from '../components/ui';
 import { errMsg } from '../lib/api';
@@ -34,30 +34,30 @@ export default function Login() {
 
   return (
     <div className="grid min-h-screen lg:grid-cols-2">
-      <div className="relative hidden overflow-hidden bg-slate-900 lg:block">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(234,88,12,.35),transparent_45%),radial-gradient(circle_at_80%_70%,rgba(59,130,246,.18),transparent_45%)]" />
-        <div className="absolute inset-0 opacity-[.07] [background-image:linear-gradient(#fff_1px,transparent_1px),linear-gradient(90deg,#fff_1px,transparent_1px)] [background-size:40px_40px]" />
-        <div className="relative flex h-full flex-col justify-between p-12 text-white">
-          <div className="flex items-center gap-3">
-            <div className="flex size-10 items-center justify-center rounded-xl bg-brand-600"><Building2 className="size-5" /></div>
-            <span className="text-xl font-bold">BuildPro</span>
-          </div>
-          <div>
-            <h1 className="max-w-lg text-4xl leading-tight font-bold tracking-tight">Run every site, every rupee and every room — from one place.</h1>
-            <p className="mt-4 max-w-md text-slate-300">Construction & interior project management: leads to handover, BOQ to billing, stock to profit.</p>
-            <ul className="mt-8 space-y-3 text-sm text-slate-300">
-              {['Lead → Quotation → Project in a few clicks', 'Daily site reports, attendance & material tracking', 'Measurement-based client & contractor billing', 'Live profit / loss for every project'].map((t) => (
-                <li key={t} className="flex items-center gap-2.5"><CheckCircle2 className="size-4 text-brand-400" />{t}</li>
+      <div className="relative isolate hidden overflow-hidden bg-black lg:block">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_32%,rgba(224,178,53,.22),transparent_50%),radial-gradient(circle_at_85%_95%,rgba(166,124,18,.18),transparent_45%)]" />
+        <div className="absolute inset-0 opacity-[.05] [background-image:linear-gradient(#e0b235_1px,transparent_1px),linear-gradient(90deg,#e0b235_1px,transparent_1px)] [background-size:48px_48px]" />
+        <div className="relative flex h-full flex-col items-center justify-between p-12 text-white">
+          <div className="flex flex-1 flex-col items-center justify-center text-center">
+            <img src={`${import.meta.env.BASE_URL}logo-512.png`} alt="Intra Interiors" className="size-72 animate-pop mix-blend-lighten xl:size-80" />
+            <div className="bg-gold mt-2 h-px w-40 opacity-60" />
+            <h1 className="mt-8 max-w-lg text-3xl leading-tight font-bold tracking-tight xl:text-4xl">
+              Run every site, every rupee and every room — <span className="text-gold">from one place.</span>
+            </h1>
+            <p className="mx-auto mt-4 max-w-md text-neutral-400">Construction & interior project management: leads to handover, BOQ to billing, stock to profit.</p>
+            <ul className="mt-8 grid grid-cols-2 gap-3 text-left text-sm text-neutral-300">
+              {['Lead → Quotation → Project', 'Daily site reports & attendance', 'Measurement-based billing', 'Live profit / loss per project'].map((t) => (
+                <li key={t} className="flex items-center gap-2.5 rounded-lg border border-brand-400/15 bg-brand-400/5 px-3 py-2"><CheckCircle2 className="size-4 shrink-0 text-brand-400" />{t}</li>
               ))}
             </ul>
           </div>
-          <p className="text-xs text-slate-500">© {new Date().getFullYear()} BuildPro ERP</p>
+          <p className="text-xs tracking-widest text-brand-200/40 uppercase">© {new Date().getFullYear()} Intra Interiors</p>
         </div>
       </div>
 
       <div className="flex items-center justify-center p-6 sm:p-12">
         <div className="w-full max-w-sm">
-          <div className="mb-8 lg:hidden"><div className="flex size-11 items-center justify-center rounded-xl bg-brand-600 text-white"><Building2 className="size-5" /></div></div>
+          <div className="mb-8 flex justify-center lg:hidden"><img src={`${import.meta.env.BASE_URL}logo-192.png`} alt="Intra Interiors" className="size-28 rounded-2xl shadow-xl shadow-brand-500/20" /></div>
           <h2 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">Welcome back</h2>
           <p className="mt-1 text-sm text-slate-500">Sign in to your workspace</p>
 

@@ -4,16 +4,18 @@
 
 @theme {
   --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
-  --color-brand-50: #fff7ed;
-  --color-brand-100: #ffedd5;
-  --color-brand-200: #fed7aa;
-  --color-brand-300: #fdba74;
-  --color-brand-400: #fb923c;
-  --color-brand-500: #f97316;
-  --color-brand-600: #ea580c;
-  --color-brand-700: #c2410c;
-  --color-brand-800: #9a3412;
-  --color-brand-900: #7c2d12;
+  /* Intra Interiors gold (from the logo) */
+  --color-brand-50: #fdf9ec;
+  --color-brand-100: #faf0cc;
+  --color-brand-200: #f4df95;
+  --color-brand-300: #ecc95a;
+  --color-brand-400: #e0b235;
+  --color-brand-500: #c99a1e;
+  --color-brand-600: #a67c12;
+  --color-brand-700: #856010;
+  --color-brand-800: #6b4c13;
+  --color-brand-900: #583f14;
+  --color-brand-950: #2f2108;
   --animate-fade-in: fade-in 0.18s ease-out;
   --animate-slide-in: slide-in 0.22s cubic-bezier(0.16, 1, 0.3, 1);
   --animate-pop: pop 0.16s ease-out;
@@ -39,6 +41,8 @@
       dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:focus:border-brand-500 dark:disabled:bg-slate-800/60;
   }
   textarea.input { @apply h-auto py-2; }
+  .text-gold { @apply bg-gradient-to-r from-brand-200 via-brand-400 to-brand-600 bg-clip-text text-transparent; }
+  .bg-gold { @apply bg-gradient-to-r from-brand-500 via-brand-400 to-brand-600; }
   .label { @apply mb-1.5 block text-xs font-medium text-slate-600 dark:text-slate-400; }
   .th { @apply whitespace-nowrap px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400; }
   .td { @apply whitespace-nowrap px-4 py-3 text-sm; }
