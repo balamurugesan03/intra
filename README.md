@@ -31,6 +31,7 @@ Config lives in `server/.env` (copy from `server/.env.example`; **change `JWT_SE
 | Accountant | accounts@buildpro.in |
 | Designer | designer@buildpro.in |
 | Store Manager | store@buildpro.in |
+| HR Manager | hr@buildpro.in |
 | Contractor (portal) | contractor@buildpro.in |
 | Worker (portal) | worker@buildpro.in |
 | Client (portal) | client@buildpro.in |
@@ -40,7 +41,11 @@ Config lives in `server/.env` (copy from `server/.env.example`; **change `JWT_SE
 ```
 Lead → Client → Site Visit → BOQ → Quotation → Client Approval → Project → Work Plan
 → Material + Labour → Site Execution → Daily Progress → Measurement → Client Billing
-→ Payment → Completion → Profit / Loss
+→ Payment → Completion → After-sales Service → Profit / Loss
+
+CRM:    Lead → Follow-ups (calls, meetings, next date) → Client 360° → … → Service ticket → Rework task → Resolved
+Labour: Worker → Daily muster (wages = project labour cost) → Wage settlement → Labour Wages payment
+Staff:  Employee → Staff attendance + Leave (apply → manager/HR approves → on muster) → Payroll → Salary payments + payslips
 ```
 
 Each step has a one-click action that carries data forward:
@@ -57,6 +62,11 @@ Each step has a one-click action that carries data forward:
 | Work order | Record measurement | Contractor measurement |
 | Measurement | Verify → Generate client invoice / contractor bill | Bill with GST / retention |
 | Bill | Record payment / receipt | Balance & status auto-update |
+| Lead / Client | Log call / follow-up | Activity; lead follow-up date & status updated, older follow-ups closed |
+| Service ticket | Create rework task | Task on the project; marking it Done resolves the ticket |
+| Attendance | Wage settlement → Pay | One Labour Wages payment per worker & site; those days locked |
+| Leave | Approve (reporting manager / HR) | Days marked Leave on staff muster, used by payroll |
+| Payroll | Run → Approve → Pay salaries | Salary payment per employee, advance instalments recovered, payslips |
 
 The Lead status advances automatically (Contacted → Site Visit → Estimation → Quoted → Won).
 
@@ -68,7 +78,12 @@ Interior Design (rooms, design images, material & furniture selection, client ap
 Material Master · Stock (warehouse + site-wise, receipt / consumption / transfer / wastage, low-stock alerts) · Material Requests ·
 RFQ · Purchase Orders · Vendors · Workers · Attendance (daily muster, OT, auto wages) · Subcontractors · Work Orders ·
 Measurement Book (L×B×H) · Bills & Invoices (client / vendor / contractor) · Payments · Expenses · 13 Reports (CSV export / print) ·
-Notifications (live: task, payment, stock, deadline, approval, purchase, follow-up) · Users & Roles · Settings (company letterhead).
+Notifications (live: task, payment, stock, deadline, approval, purchase, follow-up, service, leave, payroll) · Users & Roles · Settings (company letterhead).
+
+**CRM:** Lead pipeline board (drag between stages) · Follow-ups & activities · Client 360° (journey, quotes, projects, invoices, service) · Service & complaints (client portal can raise tickets).
+
+**HR & Payroll:** Employees (salary structure, PF/ESI/PT, reporting line, linked login) · Staff attendance (daily muster, monthly register) ·
+Leave (yearly quota, balance, approvals) · Salary advances · Payroll (attendance-based, LOP, bonus/deductions, approve, pay) · Payslips · My HR self-service.
 
 Extras: Ctrl+K command palette, dark mode, mobile responsive layout, role-based menus and API permissions,
 portal scoping (clients see only their projects/quotes/bills; contractors only their work orders/bills; workers only their tasks).

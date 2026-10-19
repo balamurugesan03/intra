@@ -15,6 +15,8 @@ import financeRoutes from './routes/finance.routes.js';
 import dashboardRoutes from './routes/dashboard.routes.js';
 import reportRoutes from './routes/reports.routes.js';
 import notificationRoutes from './routes/notifications.routes.js';
+import crmRoutes from './routes/crm.routes.js';
+import hrRoutes from './routes/hr.routes.js';
 import { notFound, errorHandler } from './middleware/error.js';
 
 const isProd = process.env.NODE_ENV === 'production';
@@ -39,7 +41,7 @@ app.use(`${BASE}/uploads`, express.static(path.resolve('uploads'), { maxAge: '7d
 app.get(`${BASE}/api/health`, (_req, res) => res.json({ ok: true, db: mongoose.connection.readyState === 1 }));
 
 // coreRoutes registers /auth/login (public) and then applies `protect` to everything after it
-app.use(`${BASE}/api`, coreRoutes, salesRoutes, projectRoutes, inventoryRoutes, workforceRoutes, financeRoutes, dashboardRoutes, reportRoutes, notificationRoutes);
+app.use(`${BASE}/api`, coreRoutes, salesRoutes, projectRoutes, inventoryRoutes, workforceRoutes, financeRoutes, crmRoutes, hrRoutes, dashboardRoutes, reportRoutes, notificationRoutes);
 
 // Serve the built React app (client/dist) with SPA fallback
 const clientDist = path.resolve('../client/dist');

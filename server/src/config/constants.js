@@ -27,7 +27,8 @@ export const MEASUREMENT_STATUS = ['Draft', 'Verified', 'Billed'];
 export const BILL_TYPES = ['Client', 'Vendor', 'Contractor'];
 export const BILL_STATUS = ['Draft', 'Issued', 'Partially Paid', 'Paid', 'Cancelled'];
 export const PAYMENT_CATEGORIES = [
-  'Client Receipt', 'Client Advance', 'Vendor Payment', 'Contractor Payment', 'Labour Wages', 'Other Income', 'Other Payment',
+  'Client Receipt', 'Client Advance', 'Vendor Payment', 'Contractor Payment', 'Labour Wages', 'Salary', 'Salary Advance',
+  'Other Income', 'Other Payment',
 ];
 export const PAYMENT_MODES = ['Cash', 'Bank Transfer', 'UPI', 'Cheque', 'Card'];
 export const EXPENSE_CATEGORIES = [
@@ -43,3 +44,20 @@ export const DOCUMENT_CATEGORIES = [
 ];
 
 export const INCOME_CATEGORIES = ['Client Receipt', 'Client Advance', 'Other Income'];
+
+/* ---------------- CRM ---------------- */
+export const ACTIVITY_TYPES = ['Call', 'Meeting', 'WhatsApp', 'Email', 'Site Visit', 'Note'];
+export const TICKET_CATEGORIES = ['Complaint', 'Snag / Rework', 'Warranty', 'Service Request', 'Feedback'];
+export const TICKET_STATUS = ['Open', 'In Progress', 'Resolved', 'Closed'];
+
+/* ---------------- HRMS ---------------- */
+export const DEPARTMENTS = [
+  'Management', 'Projects', 'Site Execution', 'Design', 'Estimation', 'Sales', 'Purchase', 'Stores', 'Accounts', 'HR & Admin',
+];
+export const EMPLOYEE_STATUS = ['Active', 'On Notice', 'Exited'];
+export const STAFF_ATTENDANCE_STATUS = ['Present', 'Half Day', 'Absent', 'Leave', 'Holiday', 'Week Off'];
+export const LEAVE_TYPES = ['Casual Leave', 'Sick Leave', 'Earned Leave', 'Comp Off', 'Loss of Pay'];
+// Yearly quota per leave type. Types not listed here (Comp Off, Loss of Pay) have no limit.
+export const LEAVE_QUOTA = { 'Casual Leave': 12, 'Sick Leave': 6, 'Earned Leave': 15 };
+export const LEAVE_STATUS = ['Pending', 'Approved', 'Rejected', 'Cancelled'];
+export const PAYROLL_STATUS = ['Draft', 'Approved', 'Paid'];

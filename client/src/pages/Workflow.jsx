@@ -1,7 +1,8 @@
 import { Link } from 'react-router-dom';
 import {
   Target, Contact, MapPin, Calculator, FileText, BadgeCheck, FolderKanban, ListChecks, Boxes, HardHat, ClipboardList,
-  Ruler, Receipt, Wallet, Flag, TrendingUp, ArrowDown, ArrowRight,
+  Ruler, Receipt, Wallet, Flag, TrendingUp, ArrowDown, ArrowRight, MessageSquare, LifeBuoy, IdCard, CalendarClock, CalendarOff,
+  FileSpreadsheet, HandCoins, CalendarCheck,
 } from 'lucide-react';
 import { useApi } from '../lib/hooks';
 import { Card, CardHeader, PageHeader, PageLoader, StatCard } from '../components/ui';
@@ -9,7 +10,8 @@ import { moneyShort, cn } from '../lib/format';
 
 const STEPS = [
   { key: 'leads', title: 'Lead', icon: Target, to: '/leads', how: 'Capture enquiry with requirement, budget & follow-up date.' },
-  { key: 'clients', title: 'Client', icon: Contact, to: '/clients', how: 'Lead ⋯ → “Convert to client”.' },
+  { key: 'followups', title: 'Follow-ups', icon: MessageSquare, to: '/crm/activities?status=Open', how: 'Lead ⋯ → “Log call / follow-up”. Next date drives reminders.' },
+  { key: 'clients', title: 'Client', icon: Contact, to: '/clients', how: 'Lead ⋯ → “Convert to client”. Client 360° shows the whole relationship.' },
   { key: 'visits', title: 'Site Visit', icon: MapPin, to: '/site-visits', how: 'Lead ⋯ → “Schedule site visit”. Record measurements & photos.' },
   { key: 'boq', title: 'Estimation / BOQ', icon: Calculator, to: '/boq', how: 'Site visit ⋯ → “Prepare BOQ”. Material + labour rates + margin.' },
   { key: 'quotes', title: 'Quotation', icon: FileText, to: '/quotations', how: 'BOQ ⋯ → “Create quotation”. Discount, GST, versions.' },
@@ -23,7 +25,30 @@ const STEPS = [
   { key: 'billing', title: 'Client Billing', icon: Receipt, to: '/finance/bills?billType=Client', how: 'Verified measurement ⋯ → “Generate client invoice”.' },
   { key: 'payment', title: 'Payment', icon: Wallet, to: '/finance/payments', how: 'Record receipt against invoice. Balance auto-updates.' },
   { key: 'completed', title: 'Project Completion', icon: Flag, to: '/projects?status=Completed', how: 'Mark project Completed after handover.' },
+  { key: 'tickets', title: 'After-sales Service', icon: LifeBuoy, to: '/crm/tickets', how: 'Snag / complaint ticket → “Create rework task” → task done resolves it.' },
   { key: 'pl', title: 'Profit / Loss', icon: TrendingUp, to: '/reports?r=profit-loss', how: 'Billed revenue vs material + labour + subcontract + expenses.' },
+];
+
+// People flows that feed the project cost (labour) and company cash flow (salaries)
+const PEOPLE_FLOWS = [
+  {
+    title: 'Site labour',
+    steps: [
+      { title: 'Workers', icon: HardHat, to: '/workforce/workers', how: 'Trade, daily wage & OT rate' },
+      { title: 'Daily muster', icon: CalendarCheck, to: '/workforce/attendance', how: 'Wages → project labour cost' },
+      { title: 'Wage settlement', icon: Wallet, to: '/workforce/attendance', how: 'Unpaid days → Labour Wages payment', count: (hr) => moneyShort(hr.unpaidWages) },
+    ],
+  },
+  {
+    title: 'Staff HR & payroll',
+    steps: [
+      { title: 'Employees', icon: IdCard, to: '/hr/employees', how: 'Salary structure, reporting line, login', count: (hr) => hr.employees },
+      { title: 'Staff attendance', icon: CalendarClock, to: '/hr/attendance', how: 'Daily muster for office & site staff' },
+      { title: 'Leave', icon: CalendarOff, to: '/hr/leaves?status=Pending', how: 'Apply → manager / HR approves → on muster', count: (hr) => hr.pendingLeaves },
+      { title: 'Advances', icon: HandCoins, to: '/hr/advances', how: 'Paid now, recovered in payroll' },
+      { title: 'Payroll', icon: FileSpreadsheet, to: '/hr/payroll', how: 'Run → approve → pay: Salary payments + payslips', count: (hr) => hr.payrolls },
+    ],
+  },
 ];
 
 export default function Workflow() {
@@ -89,6 +114,29 @@ export default function Workflow() {
             })}
           </div>
         </Card>
+      </div>
+
+      <div className="mt-8 grid gap-6 lg:grid-cols-[3fr_5fr]">
+        {PEOPLE_FLOWS.map((flow) => (
+          <Card key={flow.title}>
+            <CardHeader title={flow.title} />
+            <div className="flex flex-col gap-2 p-4 sm:flex-row sm:items-stretch">
+              {flow.steps.map((s, i) => (
+                <div key={s.title} className="flex flex-1 flex-col items-stretch gap-2 sm:flex-row sm:items-center">
+                  <Link to={s.to} className="block flex-1 rounded-lg border border-slate-200 p-3 transition hover:border-brand-300 hover:shadow dark:border-slate-700">
+                    <div className="flex items-center justify-between gap-2">
+                      <s.icon className="size-4 text-brand-600" />
+                      {s.count && data?.hr && <span className="text-sm font-bold text-brand-600 tabular-nums">{s.count(data.hr)}</span>}
+                    </div>
+                    <p className="mt-2 text-sm font-semibold">{s.title}</p>
+                    <p className="text-xs leading-relaxed text-slate-500">{s.how}</p>
+                  </Link>
+                  {i < flow.steps.length - 1 && <ArrowRight className="mx-auto size-4 shrink-0 rotate-90 text-slate-300 sm:rotate-0 dark:text-slate-700" />}
+                </div>
+              ))}
+            </div>
+          </Card>
+        ))}
       </div>
     </div>
   );

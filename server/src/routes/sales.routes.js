@@ -2,7 +2,8 @@ import express from 'express';
 import { crud } from '../utils/crud.js';
 import { guard, allowRoles } from '../middleware/auth.js';
 import { scopes } from '../services/scope.js';
-import { Lead, Client, SiteVisit, Boq, Quotation, Project } from '../models/index.js';
+import { projectFinancials, totalsOf } from '../services/finance.js';
+import { Lead, Client, SiteVisit, Boq, Quotation, Project, Activity, Ticket, Bill } from '../models/index.js';
 import { LEAD_STATUS } from '../config/constants.js';
 import { ApiError, round2, isValidId } from '../utils/helpers.js';
 
@@ -45,6 +46,8 @@ router.use(
         lead.client = client._id;
         if (lead.status === 'New') lead.status = 'Contacted';
         await lead.save();
+        // Earlier calls / meetings now belong to the client's history too
+        await Activity.updateMany({ lead: lead._id, client: null }, { client: client._id });
         res.status(201).json(client);
       });
     },
@@ -61,6 +64,45 @@ router.use(
     filters: ['city'],
     beforeDelete: async (doc) => {
       if (await Project.exists({ client: doc._id })) throw new ApiError(400, 'Client has projects and cannot be deleted');
+    },
+    extend: (r, { findScoped }) => {
+      // Client 360°: the whole relationship from enquiry to after-sales on one page
+      r.get('/:id/summary', async (req, res) => {
+        const client = await findScoped(req);
+        const id = client._id;
+        const [leads, visits, quotes, projects, outstanding, activities, openTickets] = await Promise.all([
+          Lead.find({ $or: [{ client: id }, ...(client.lead ? [{ _id: client.lead }] : [])] }).select('code name status source budget followUpDate createdAt').lean(),
+          SiteVisit.countDocuments({ client: id }),
+          Quotation.find({ client: id, status: { $ne: 'Revised' } }).select('status grandTotal').lean(),
+          Project.find({ client: id }).select('code name status progress contractValue').lean(),
+          Bill.aggregate([
+            { $match: { client: id, billType: 'Client', status: { $nin: ['Draft', 'Cancelled'] } } },
+            { $group: { _id: null, sum: { $sum: '$balance' } } },
+          ]),
+          Activity.find({ $or: [{ client: id }, ...(client.lead ? [{ lead: client.lead }] : [])] }).populate('by', 'name').sort('-date').limit(8).lean(),
+          Ticket.countDocuments({ client: id, status: { $in: ['Open', 'In Progress'] } }),
+        ]);
+        const fin = projects.length ? totalsOf(await projectFinancials(projects.map((p) => p._id))) : { billed: 0, received: 0 };
+        res.json({
+          leads,
+          projects,
+          activities,
+          counts: {
+            siteVisits: visits,
+            quotations: quotes.length,
+            approvedQuotes: quotes.filter((q) => ['Approved', 'Converted'].includes(q.status)).length,
+            projects: projects.length,
+            openTickets,
+          },
+          finance: {
+            quoted: round2(quotes.reduce((s, q) => s + (q.grandTotal || 0), 0)),
+            contractValue: round2(projects.reduce((s, p) => s + (p.contractValue || 0), 0)),
+            billed: fin.billed,
+            received: fin.received,
+            outstanding: round2(outstanding[0]?.sum || 0),
+          },
+        });
+      });
     },
   }),
 );

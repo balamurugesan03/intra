@@ -7,7 +7,7 @@ import { scopes } from '../services/scope.js';
 import { projectFinancials, finFor } from '../services/finance.js';
 import { stockLevels } from '../services/stock.js';
 import {
-  Project, Task, DailyReport, Room, Document, Boq, Quotation, Material, Attendance, WorkOrder,
+  Project, Task, DailyReport, Room, Document, Boq, Quotation, Material, Attendance, WorkOrder, Ticket,
 } from '../models/index.js';
 import { ApiError, isValidId, startOfDay } from '../utils/helpers.js';
 
@@ -87,6 +87,11 @@ router.use(
           throw new ApiError(400, `Blocked by unfinished dependency: ${blocking.map((b) => b.title).join(', ')}`);
         }
       }
+    },
+    // Finishing a rework task resolves the service ticket it came from
+    afterSave: async (doc) => {
+      if (doc.status !== 'Done') return;
+      await Ticket.updateMany({ task: doc._id, status: { $in: ['Open', 'In Progress'] } }, { status: 'Resolved', resolvedAt: new Date() });
     },
   }),
 );

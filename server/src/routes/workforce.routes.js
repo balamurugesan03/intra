@@ -3,13 +3,48 @@ import { crud } from '../utils/crud.js';
 import { guard } from '../middleware/auth.js';
 import { scopes } from '../services/scope.js';
 import { Worker, Attendance, Subcontractor, WorkOrder, Measurement, Project, Bill, Payment } from '../models/index.js';
-import { ApiError, round2 } from '../utils/helpers.js';
+import { ApiError, round2, dayKey } from '../utils/helpers.js';
 
 const router = express.Router();
 const P = (path, select = 'name code') => ({ path, select });
 
-// Attendance dates are stored as UTC midnight of the calendar day ("YYYY-MM-DD").
-const dayKey = (d) => new Date(String(d || new Date().toISOString()).slice(0, 10));
+/** Attendance not yet paid out, grouped per worker & site, for a site and/or period. */
+async function unpaidWages({ project, from, to, workers }) {
+  const match = { payment: null, wage: { $gt: 0 } };
+  if (project) match.project = project;
+  if (workers?.length) match.worker = { $in: workers };
+  if (from || to) match.date = { ...(from && { $gte: dayKey(from) }), ...(to && { $lte: dayKey(to) }) };
+  const rows = await Attendance.find(match).populate('worker', 'name code trade').populate('project', 'name code').sort('date').lean();
+  const groups = new Map();
+  for (const a of rows) {
+    if (!a.worker || !a.project) continue;
+    const k = `${a.worker._id}-${a.project._id}`;
+    if (!groups.has(k)) groups.set(k, { worker: a.worker, project: a.project, days: 0, otHours: 0, amount: 0, from: a.date, to: a.date, ids: [] });
+    const g = groups.get(k);
+    g.days += a.status === 'Present' ? 1 : a.status === 'Half Day' ? 0.5 : 0;
+    g.otHours += a.otHours || 0;
+    g.amount = round2(g.amount + a.wage);
+    g.to = a.date;
+    g.ids.push(a._id);
+  }
+  return [...groups.values()].sort((a, b) => a.project.code.localeCompare(b.project.code) || a.worker.name.localeCompare(b.worker.name));
+}
+
+// Pay out unpaid wages: one Labour Wages payment per worker & site, attendance rows get locked to it
+router.post('/attendance/settle', guard('payments'), async (req, res) => {
+  const { project, from, to, workers, date = new Date(), mode = 'Cash', reference } = req.body || {};
+  const groups = await unpaidWages({ project, from, to, workers });
+  if (!groups.length) throw new ApiError(400, 'No unpaid wages for this selection');
+  for (const g of groups) {
+    const pay = await Payment.create({
+      category: 'Labour Wages', worker: g.worker._id, project: g.project._id, amount: g.amount, date, mode, reference,
+      notes: `Wages ${g.from.toISOString().slice(0, 10)} to ${g.to.toISOString().slice(0, 10)} · ${g.days} day(s), ${g.otHours} OT hr(s)`,
+      recordedBy: req.user._id,
+    });
+    await Attendance.updateMany({ _id: { $in: g.ids } }, { payment: pay._id });
+  }
+  res.json({ payments: groups.length, amount: round2(groups.reduce((s, g) => s + g.amount, 0)) });
+});
 
 /* ---------------- Workers ---------------- */
 router.use(
@@ -40,7 +75,18 @@ router.use(
       ...(body.date || isNew ? { date: dayKey(body.date) } : {}),
       markedBy: req.user._id,
     }),
+    beforeSave: async (doc, _req, isNew) => {
+      if (!isNew && doc.payment && (doc.isModified('status') || doc.isModified('otHours'))) throw new ApiError(400, 'Wages for this day are already paid');
+    },
+    beforeDelete: async (doc) => {
+      if (doc.payment) throw new ApiError(400, 'Wages for this day are already paid');
+    },
     extend: (r) => {
+      r.get('/wages', async (req, res) => {
+        const items = await unpaidWages(req.query);
+        res.json({ items: items.map(({ ids, ...g }) => ({ ...g, entries: ids.length })), total: round2(items.reduce((s, g) => s + g.amount, 0)) });
+      });
+
       // Daily muster sheet: every active worker + their attendance for the day
       r.get('/sheet', async (req, res) => {
         const date = dayKey(req.query.date);
@@ -74,6 +120,7 @@ router.use(
             const w = await Worker.findById(e.worker).lean();
             throw new ApiError(400, `${w?.name} is already marked at another site on this date`);
           }
+          if (doc?.payment) continue; // wage already paid, the day is locked
           doc = doc || new Attendance({ date, worker: e.worker, project });
           doc.set({ status: e.status, otHours: Number(e.otHours || 0), remarks: e.remarks, markedBy: req.user._id });
           await doc.save();

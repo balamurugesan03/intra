@@ -1,7 +1,8 @@
 import {
   LayoutDashboard, Workflow, Target, Contact, MapPin, Calculator, FileText, FolderKanban, ListChecks, ClipboardList,
   Sofa, Images, Package, Boxes, ClipboardPlus, Store, Send, ShoppingCart, HardHat, CalendarCheck, Briefcase, Ruler,
-  Receipt, Wallet, Banknote, BarChart3, Bell, Users, Settings,
+  Receipt, Wallet, Banknote, BarChart3, Bell, Users, Settings, MessageSquare, LifeBuoy, IdCard, CalendarClock, CalendarOff,
+  FileSpreadsheet, HandCoins, UserRound,
 } from 'lucide-react';
 
 export const NAV = [
@@ -16,6 +17,7 @@ export const NAV = [
     group: 'Sales & CRM',
     items: [
       { to: '/leads', label: 'Leads', icon: Target, module: 'leads' },
+      { to: '/crm/activities', label: 'Follow-ups', icon: MessageSquare, module: 'activities' },
       { to: '/clients', label: 'Clients', icon: Contact, module: 'clients' },
       { to: '/site-visits', label: 'Site Visits', icon: MapPin, module: 'siteVisits' },
       { to: '/boq', label: 'BOQ / Estimation', icon: Calculator, module: 'boq' },
@@ -30,6 +32,7 @@ export const NAV = [
       { to: '/site-reports', label: 'Daily Site Reports', icon: ClipboardList, module: 'dailyReports' },
       { to: '/interior', label: 'Interior Design', icon: Sofa, module: 'rooms' },
       { to: '/documents', label: 'Documents & Photos', icon: Images, module: 'documents' },
+      { to: '/crm/tickets', label: 'Service & Complaints', icon: LifeBuoy, module: 'tickets' },
     ],
   },
   {
@@ -59,6 +62,17 @@ export const NAV = [
       { to: '/finance/bills', label: 'Bills & Invoices', icon: Receipt, module: 'bills' },
       { to: '/finance/payments', label: 'Payments', icon: Wallet, module: 'payments' },
       { to: '/finance/expenses', label: 'Expenses', icon: Banknote, module: 'expenses' },
+    ],
+  },
+  {
+    group: 'HR & Payroll',
+    items: [
+      { to: '/hr/me', label: 'My HR', icon: UserRound, module: 'leaves' },
+      { to: '/hr/employees', label: 'Employees', icon: IdCard, module: 'employees' },
+      { to: '/hr/attendance', label: 'Staff Attendance', icon: CalendarClock, module: 'staffAttendance' },
+      { to: '/hr/leaves', label: 'Leave', icon: CalendarOff, module: 'leaves' },
+      { to: '/hr/payroll', label: 'Payroll', icon: FileSpreadsheet, module: 'payroll' },
+      { to: '/hr/advances', label: 'Salary Advances', icon: HandCoins, module: 'advances' },
     ],
   },
   {

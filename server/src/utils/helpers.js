@@ -44,3 +44,6 @@ export const computeLines = (items = [], qtyKey = 'quantity', rateKey = 'rate') 
   }
   return round2(total);
 };
+
+// Day-wise records (attendance) are stored as UTC midnight of the calendar day ("YYYY-MM-DD").
+export const dayKey = (d) => new Date(String(d || new Date().toISOString()).slice(0, 10));

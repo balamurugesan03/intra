@@ -5,6 +5,7 @@ import { projectFinancials, finFor, totalsOf } from '../services/finance.js';
 import { stockLevels } from '../services/stock.js';
 import {
   Project, Task, Payment, Expense, DailyReport, Lead, Client, SiteVisit, Boq, Quotation, Material, Bill, Measurement,
+  Activity, Ticket, Employee, Leave, Payroll, Attendance,
 } from '../models/index.js';
 import { startOfDay, addDays, round2 } from '../utils/helpers.js';
 
@@ -117,7 +118,8 @@ router.get('/dashboard', guard('dashboard'), async (req, res) => {
 
 /* Funnel counts for the core business flow */
 router.get('/dashboard/pipeline', guard('pipeline'), async (req, res) => {
-  const [leads, leadStatus, clients, visits, boqs, quotes, approved, projects, ongoing, measurements, invoices, receipts, completed] =
+  const [leads, leadStatus, clients, visits, boqs, quotes, approved, projects, ongoing, measurements, invoices, receipts, completed,
+    followUps, tickets, employees, pendingLeaves, payrolls, unpaidWages] =
     await Promise.all([
       Lead.countDocuments(),
       Lead.aggregate([{ $group: { _id: '$status', count: { $sum: 1 } } }]),
@@ -132,12 +134,19 @@ router.get('/dashboard/pipeline', guard('pipeline'), async (req, res) => {
       Bill.countDocuments({ billType: 'Client', status: { $nin: ['Draft', 'Cancelled'] } }),
       Payment.countDocuments({ direction: 'In' }),
       Project.countDocuments({ status: 'Completed' }),
+      Activity.countDocuments({ status: 'Open' }),
+      Ticket.countDocuments({ status: { $in: ['Open', 'In Progress'] } }),
+      Employee.countDocuments({ status: { $ne: 'Exited' } }),
+      Leave.countDocuments({ status: 'Pending' }),
+      Payroll.countDocuments({ status: 'Paid' }),
+      Attendance.aggregate([{ $match: { payment: null } }, { $group: { _id: null, sum: { $sum: '$wage' } } }]),
     ]);
   const fin = totalsOf(await projectFinancials());
   res.json({
     leadStatus: leadStatus.map((s) => ({ name: s._id, value: s.count })),
     stages: [
       { key: 'leads', label: 'Leads', count: leads, to: '/leads' },
+      { key: 'followups', label: 'Follow-ups due', count: followUps, to: '/crm/activities?status=Open' },
       { key: 'clients', label: 'Clients', count: clients, to: '/clients' },
       { key: 'visits', label: 'Site Visits', count: visits, to: '/site-visits' },
       { key: 'boq', label: 'Estimation / BOQ', count: boqs, to: '/boq' },
@@ -149,8 +158,10 @@ router.get('/dashboard/pipeline', guard('pipeline'), async (req, res) => {
       { key: 'billing', label: 'Client Billing', count: invoices, to: '/finance/bills?billType=Client' },
       { key: 'payment', label: 'Payments', count: receipts, to: '/finance/payments' },
       { key: 'completed', label: 'Completed', count: completed, to: '/projects?status=Completed' },
+      { key: 'tickets', label: 'Open service tickets', count: tickets, to: '/crm/tickets?status=Open' },
     ],
     finance: { ...fin, profit: round2(fin.billed - fin.totalCost) },
+    hr: { employees, pendingLeaves, payrolls, unpaidWages: round2(unpaidWages[0]?.sum || 0) },
   });
 });
 

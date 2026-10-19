@@ -34,6 +34,7 @@ export const scopes = {
     if (u.role === 'Worker') return { assignedTo: u._id };
     return scopes.byProject(u);
   },
+  tickets: async (u) => (u.role === 'Client' ? (u.client ? { client: u.client } : NONE) : {}),
   workOrders: async (u) => (u.role === 'Contractor' ? (u.subcontractor ? { subcontractor: u.subcontractor } : NONE) : {}),
   measurements: async (u) => {
     if (u.role === 'Contractor') return u.subcontractor ? { subcontractor: u.subcontractor } : NONE;

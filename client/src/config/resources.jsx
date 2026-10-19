@@ -2,6 +2,7 @@ import {
   UserPlus, ArrowRightCircle, CalendarPlus, Calculator, FileText, Send, CheckCircle2, XCircle, Copy, FolderKanban,
   ShoppingCart, PackageCheck, Receipt, BadgeCheck, Wallet, Eye, Ban, Users, Building2, Ruler, Truck, ClipboardList,
   HardHat, Package, Boxes, Banknote, CreditCard, Briefcase, Store, Contact, Target, MapPin, ListChecks, Award,
+  MessageSquare, LifeBuoy, Wrench, IdCard, CalendarOff, HandCoins, FileSpreadsheet, CheckCheck,
 } from 'lucide-react';
 import * as C from '../lib/constants';
 import { money, number, fmtDate } from '../lib/format';
@@ -24,6 +25,8 @@ export const REF = {
   staff: { endpoint: '/users/lookup', lookup: true, label: (o) => o.name, sub: (o) => o.role },
   task: { module: 'tasks', endpoint: '/tasks', label: codeName },
   room: { module: 'rooms', endpoint: '/rooms', label: (o) => o.name },
+  quotation: { module: 'quotations', endpoint: '/quotations', label: (o) => `${o.code} v${o.version} · ${o.title}`, sub: (o) => o.client?.name },
+  employee: { module: 'employees', endpoint: '/employees', label: codeName, sub: (o) => [o.designation, o.department].filter(Boolean).join(' · ') },
 };
 
 const nameCell = (primary, secondary) => (r) => (
@@ -98,9 +101,11 @@ export const leads = {
     { name: 'status', label: 'Status', type: 'select', options: C.LEAD_STATUS, default: 'New', section: 'Follow-up' },
     { name: 'assignedTo', label: 'Assigned to', type: 'ref', ref: REF.staff, section: 'Follow-up' },
     { name: 'followUpDate', label: 'Next follow-up', type: 'date', section: 'Follow-up' },
+    { name: 'lostReason', label: 'Reason lost', placeholder: 'Price, timeline, went with competitor…', showIf: (v) => v.status === 'Lost', section: 'Follow-up' },
     { name: 'notes', label: 'Notes', type: 'textarea', section: 'Follow-up' },
   ],
   rowActions: (r, ctx) => [
+    ctx.can('activities', 'edit') && !['Won', 'Lost'].includes(r.status) && { label: 'Log call / follow-up', icon: MessageSquare, onClick: () => ctx.nav(`/crm/activities?create=1&lead=${r._id}`) },
     !r.client && { label: 'Convert to client', icon: UserPlus, onClick: () => go(ctx, `/leads/${r._id}/convert`, null, 'Client created from lead') },
     { label: 'Schedule site visit', icon: CalendarPlus, onClick: () => ctx.nav(`/site-visits?create=1&lead=${r._id}`) },
     r.client && { label: 'Prepare BOQ', icon: Calculator, onClick: () => ctx.nav(`/boq?create=1&lead=${r._id}&client=${r.client._id || r.client}&projectType=${r.projectType}`) },
@@ -131,7 +136,10 @@ export const clients = {
     { name: 'gstin', label: 'GSTIN' },
     { name: 'notes', label: 'Notes', type: 'textarea' },
   ],
+  onRowClick: (r, ctx) => ctx.nav(`/clients/${r._id}`),
   rowActions: (r, ctx) => [
+    { label: 'Open client 360°', icon: Eye, onClick: () => ctx.nav(`/clients/${r._id}`) },
+    ctx.can('activities', 'edit') && { label: 'Log call / follow-up', icon: MessageSquare, onClick: () => ctx.nav(`/crm/activities?create=1&client=${r._id}`) },
     { label: 'Schedule site visit', icon: CalendarPlus, onClick: () => ctx.nav(`/site-visits?create=1&client=${r._id}`) },
     { label: 'Prepare BOQ', icon: Calculator, onClick: () => ctx.nav(`/boq?create=1&client=${r._id}`) },
     { label: 'View projects', icon: FolderKanban, onClick: () => ctx.nav(`/projects?client=${r._id}`) },
@@ -254,6 +262,89 @@ export const quotations = {
   ],
   summary: (v) => gstSummary(v, { discount: true }),
   afterCreate: (q, ctx) => ctx.nav(`/quotations/${q._id}`),
+};
+
+const overdue = (d) => d && new Date(d) < new Date(new Date().toDateString());
+export const activities = {
+  key: 'activities', endpoint: '/activities', module: 'activities', icon: MessageSquare,
+  title: 'Follow-ups & Activities', singular: 'Activity', createLabel: 'Log activity',
+  description: 'Every call, meeting and message with leads and clients — and the next follow-up.',
+  searchPlaceholder: 'Search subject, outcome…',
+  emptyText: 'Log a call or meeting from a lead or client to start the follow-up trail.',
+  columns: [
+    { key: 'date', label: 'Date', type: 'date' },
+    { key: 'type', label: 'Type', type: 'status' },
+    { key: 'subject', label: 'Activity', render: nameCell((r) => r.subject, (r) => r.outcome) },
+    { key: 'party', label: 'Lead / Client', render: nameCell((r) => r.lead?.name || r.client?.name || '—', (r) => [r.lead?.code || r.client?.code, r.quotation && `${r.quotation.code} v${r.quotation.version}`].filter(Boolean).join(' · ')), exportValue: (r) => r.lead?.name || r.client?.name },
+    { key: 'nextFollowUp', label: 'Next follow-up', render: (r) => (r.status === 'Open' && r.nextFollowUp ? <span className={overdue(r.nextFollowUp) ? 'font-medium text-red-600' : ''}>{fmtDate(r.nextFollowUp)}{r.nextAction ? ` · ${r.nextAction}` : ''}</span> : '—') },
+    { key: 'by.name', label: 'By' },
+    { key: 'status', label: 'Follow-up', render: (r) => <Badge tone={r.status === 'Open' ? 'amber' : 'green'} dot>{r.status === 'Open' ? 'Pending' : 'Done'}</Badge> },
+  ],
+  filters: [
+    { name: 'status', label: 'Follow-up', options: [{ value: 'Open', label: 'Pending' }, { value: 'Done', label: 'Done' }] },
+    { name: 'type', label: 'Type', options: C.ACTIVITY_TYPES },
+    { name: 'lead', label: 'Lead', ref: REF.lead },
+  ],
+  defaults: () => ({ date: new Date().toISOString() }),
+  fields: [
+    { name: 'type', label: 'Type', type: 'select', options: C.ACTIVITY_TYPES, default: 'Call' },
+    { name: 'date', label: 'Date', type: 'date' },
+    { name: 'subject', label: 'Subject', required: true, span: 2, placeholder: 'e.g. Discussed revised kitchen layout' },
+    { name: 'lead', label: 'Lead', type: 'ref', ref: REF.lead },
+    { name: 'client', label: 'Client', type: 'ref', ref: REF.client, help: 'Auto-filled from the lead once converted' },
+    { name: 'quotation', label: 'About quotation', type: 'ref', ref: { ...REF.quotation, params: (v) => ({ client: v.client || undefined }) }, span: 2 },
+    { name: 'outcome', label: 'Outcome / notes', type: 'textarea' },
+    { name: 'nextFollowUp', label: 'Next follow-up', type: 'date', help: 'Updates the lead and shows in notifications' },
+    { name: 'nextAction', label: 'Next action', placeholder: 'e.g. Call back with revised quote' },
+  ],
+  rowActions: (r, ctx) => [
+    r.status === 'Open' && ctx.can('activities', 'edit') && { label: 'Mark follow-up done', icon: CheckCheck, onClick: () => ctx.action.mutate({ url: `/activities/${r._id}`, method: 'put', body: { status: 'Done' }, success: 'Follow-up closed' }) },
+    r.client && ctx.can('clients') && { label: 'Open client 360°', icon: Eye, onClick: () => ctx.nav(`/clients/${r.client._id}`) },
+    r.quotation && ctx.can('quotations') && { label: 'View quotation', icon: FileText, onClick: () => ctx.nav(`/quotations/${r.quotation._id}`) },
+  ],
+};
+
+export const tickets = {
+  key: 'tickets', endpoint: '/tickets', module: 'tickets', icon: LifeBuoy,
+  title: 'Service & Complaints', singular: 'Ticket', createLabel: 'Raise ticket',
+  description: 'After handover: snags, complaints and warranty calls → rework task → resolved.',
+  searchPlaceholder: 'Search issue, location…',
+  emptyText: 'Raise a ticket when a client reports a snag or complaint.',
+  columns: [
+    code,
+    { key: 'title', label: 'Issue', render: nameCell((r) => r.title, (r) => [r.category, r.location].filter(Boolean).join(' · ')) },
+    { key: 'client', label: 'Client / Project', render: nameCell((r) => r.client?.name || '—', (r) => r.project?.name), exportValue: (r) => r.client?.name, hideWhenFixed: true },
+    { key: 'priority', label: 'Priority', type: 'status' },
+    { key: 'assignedTo.name', label: 'Assigned to' },
+    { key: 'dueDate', label: 'Resolve by', render: (r) => <span className={overdue(r.dueDate) && ['Open', 'In Progress'].includes(r.status) ? 'font-medium text-red-600' : ''}>{fmtDate(r.dueDate)}</span> },
+    { key: 'task', label: 'Rework task', render: (r) => (r.task ? <span className="font-mono text-xs">{r.task.code} · {r.task.status}</span> : '—'), exportValue: (r) => r.task?.code },
+    { key: 'status', label: 'Status', type: 'status' },
+  ],
+  filters: [
+    { name: 'status', label: 'Status', options: C.TICKET_STATUS },
+    { name: 'priority', label: 'Priority', options: C.PRIORITIES },
+    { name: 'category', label: 'Category', options: C.TICKET_CATEGORIES },
+    { name: 'project', label: 'Project', ref: REF.project },
+  ],
+  fields: [
+    { name: 'title', label: 'Issue', required: true, span: 2, placeholder: 'e.g. Wardrobe shutter not aligned' },
+    projectField({ required: false, help: 'The client is taken from the project' }),
+    { name: 'client', label: 'Client', type: 'ref', ref: REF.client, showIf: (v) => !v.project, staffOnly: true },
+    { name: 'category', label: 'Category', type: 'select', options: C.TICKET_CATEGORIES, default: 'Complaint' },
+    { name: 'priority', label: 'Priority', type: 'select', options: C.PRIORITIES, default: 'Medium' },
+    { name: 'location', label: 'Location / area', placeholder: 'e.g. Master bedroom' },
+    { name: 'description', label: 'Description', type: 'textarea' },
+    { name: 'photos', label: 'Photos', type: 'files' },
+    { name: 'assignedTo', label: 'Assign to', type: 'ref', ref: { ...REF.staff, params: { role: 'Project Manager,Site Engineer,Site Supervisor,Designer' } }, staffOnly: true },
+    { name: 'dueDate', label: 'Resolve by', type: 'date', staffOnly: true },
+    { name: 'status', label: 'Status', type: 'select', options: C.TICKET_STATUS, default: 'Open', staffOnly: true },
+    { name: 'resolution', label: 'Resolution', type: 'textarea', showIf: (v) => ['Resolved', 'Closed'].includes(v.status), staffOnly: true },
+  ],
+  rowActions: (r, ctx) => [
+    ctx.can('tasks', 'edit') && r.project && !r.task && ['Open', 'In Progress'].includes(r.status) && { label: 'Create rework task', icon: Wrench, onClick: () => go(ctx, `/tickets/${r._id}/task`, null, 'Rework task created on the project') },
+    r.task && ctx.can('tasks') && { label: 'View rework task', icon: ListChecks, onClick: () => ctx.nav(`/projects/${r.project._id}?tab=tasks`) },
+    r.status === 'Resolved' && ctx.can('tasks', 'edit') && { label: 'Close ticket', icon: CheckCheck, onClick: () => ctx.action.mutate({ url: `/tickets/${r._id}`, method: 'put', body: { status: 'Closed' }, success: 'Ticket closed' }) },
+  ],
 };
 
 /* =====================================================================
@@ -800,7 +891,7 @@ export const payments = {
     code,
     { key: 'date', label: 'Date', type: 'date' },
     { key: 'category', label: 'Category', render: (r) => <Badge tone={r.direction === 'In' ? 'green' : 'red'} dot>{r.category}</Badge> },
-    { key: 'party', label: 'Party', render: (r) => r.client?.name || r.vendor?.name || r.subcontractor?.name || r.worker?.name || '—', exportValue: (r) => r.client?.name || r.vendor?.name || r.subcontractor?.name || r.worker?.name },
+    { key: 'party', label: 'Party', render: (r) => r.client?.name || r.vendor?.name || r.subcontractor?.name || r.worker?.name || r.employee?.name || '—', exportValue: (r) => r.client?.name || r.vendor?.name || r.subcontractor?.name || r.worker?.name || r.employee?.name },
     { key: 'bill.code', label: 'Against' },
     { ...projectCol, render: (r) => r.project?.name || '—' },
     { key: 'mode', label: 'Mode' },
@@ -827,6 +918,7 @@ export const payments = {
     projectField({ required: false }),
     { name: 'client', label: 'Client', type: 'ref', ref: REF.client, showIf: (v) => ['Client Advance', 'Other Income'].includes(v.category) && !v.bill },
     { name: 'worker', label: 'Worker', type: 'ref', ref: REF.worker, showIf: (v) => v.category === 'Labour Wages' },
+    { name: 'employee', label: 'Employee', type: 'ref', ref: REF.employee, showIf: (v) => ['Salary', 'Salary Advance'].includes(v.category), help: 'Salaries are normally paid from Payroll, advances from Salary Advances' },
     { name: 'amount', label: 'Amount', type: 'currency', required: true },
     { name: 'mode', label: 'Mode', type: 'select', options: C.PAYMENT_MODES, default: 'Bank Transfer' },
     { name: 'reference', label: 'Reference / UTR / Cheque no.' },
@@ -859,6 +951,160 @@ export const expenses = {
     { name: 'mode', label: 'Mode', type: 'select', options: C.PAYMENT_MODES, default: 'Cash' },
     { name: 'receipt', label: 'Receipt', type: 'file', span: 2 },
   ],
+};
+
+/* =====================================================================
+ * HR & PAYROLL
+ * ===================================================================== */
+const SAL = 'Salary (monthly)';
+export const employees = {
+  key: 'employees', endpoint: '/employees', module: 'employees', icon: IdCard,
+  title: 'Employees', singular: 'Employee', description: 'Staff master — job, reporting line, salary structure and statutory details.', formWidth: 'max-w-3xl', pageSize: 50,
+  columns: [
+    code,
+    { key: 'name', label: 'Employee', render: nameCell((r) => r.name, (r) => r.phone) },
+    { key: 'designation', label: 'Designation', render: nameCell((r) => r.designation || '—', (r) => r.department) },
+    { key: 'reportingTo.name', label: 'Reports to' },
+    { key: 'joiningDate', label: 'Joined', type: 'date' },
+    { key: 'gross', label: 'Gross / month', type: 'currency' },
+    { key: 'user', label: 'Login', render: (r) => (r.user ? <Badge tone="blue">{r.user.role}</Badge> : <span className="text-slate-400">—</span>), exportValue: (r) => r.user?.email },
+    { key: 'status', label: 'Status', type: 'status' },
+  ],
+  filters: [{ name: 'department', label: 'Department', options: C.DEPARTMENTS }, { name: 'status', label: 'Status', options: C.EMPLOYEE_STATUS }],
+  fields: [
+    { name: 'name', label: 'Full name', required: true, section: 'Personal' },
+    { name: 'phone', label: 'Phone', type: 'tel', required: true, section: 'Personal' },
+    { name: 'email', label: 'Email', type: 'email', section: 'Personal' },
+    { name: 'gender', label: 'Gender', type: 'select', options: ['Male', 'Female', 'Other'], section: 'Personal' },
+    { name: 'dob', label: 'Date of birth', type: 'date', section: 'Personal' },
+    { name: 'emergencyContact', label: 'Emergency contact', section: 'Personal' },
+    { name: 'address', label: 'Address', type: 'textarea', rows: 2, section: 'Personal' },
+    { name: 'department', label: 'Department', type: 'select', options: C.DEPARTMENTS, default: 'Projects', section: 'Job' },
+    { name: 'designation', label: 'Designation', section: 'Job' },
+    { name: 'joiningDate', label: 'Date of joining', type: 'date', section: 'Job' },
+    { name: 'reportingTo', label: 'Reports to', type: 'ref', ref: REF.employee, help: 'Approves this employee’s leave', section: 'Job' },
+    { name: 'user', label: 'Linked login', type: 'ref', ref: REF.staff, help: 'Lets the employee apply for leave and see payslips', section: 'Job' },
+    { name: 'status', label: 'Status', type: 'select', options: C.EMPLOYEE_STATUS, default: 'Active', section: 'Job' },
+    { name: 'exitDate', label: 'Last working day', type: 'date', showIf: (v) => v.status !== 'Active', section: 'Job' },
+    { name: 'basic', label: 'Basic', type: 'currency', required: true, section: SAL },
+    { name: 'hra', label: 'HRA', type: 'currency', default: 0, section: SAL },
+    { name: 'allowances', label: 'Other allowances', type: 'currency', default: 0, section: SAL },
+    { name: 'professionalTax', label: 'Professional tax / month', type: 'currency', default: 200, section: SAL },
+    { name: 'pfApplicable', label: 'PF', type: 'checkbox', checkboxLabel: '12% of basic (capped at ₹15,000)', default: true, section: SAL },
+    { name: 'esiApplicable', label: 'ESI', type: 'checkbox', checkboxLabel: '0.75% (gross up to ₹21,000)', default: false, section: SAL },
+    { name: 'pan', label: 'PAN', section: 'Statutory & bank' },
+    { name: 'aadhaar', label: 'Aadhaar', section: 'Statutory & bank' },
+    { name: 'uan', label: 'UAN (PF)', section: 'Statutory & bank' },
+    { name: 'esiNo', label: 'ESI no.', section: 'Statutory & bank' },
+    { name: 'bankName', label: 'Bank', section: 'Statutory & bank' },
+    { name: 'bankAccount', label: 'Account no.', section: 'Statutory & bank' },
+    { name: 'ifsc', label: 'IFSC', section: 'Statutory & bank' },
+  ],
+  summary: (v) => {
+    const gross = (Number(v.basic) || 0) + (Number(v.hra) || 0) + (Number(v.allowances) || 0);
+    return [{ label: 'Gross / month', value: money(gross) }, { label: 'Gross / year', value: money(gross * 12), strong: true }];
+  },
+  rowActions: (r, ctx) => [
+    ctx.can('leaves', 'edit') && { label: 'Apply leave', icon: CalendarOff, onClick: () => ctx.nav(`/hr/leaves?create=1&employee=${r._id}`) },
+    { label: 'Leave history', icon: Eye, onClick: () => ctx.nav(`/hr/leaves?employee=${r._id}`) },
+    ctx.can('advances', 'edit') && { label: 'Give salary advance', icon: HandCoins, onClick: () => ctx.nav(`/hr/advances?create=1&employee=${r._id}`) },
+  ],
+};
+
+export const leaves = {
+  key: 'leaves', endpoint: '/leaves', module: 'leaves', icon: CalendarOff,
+  title: 'Leave', singular: 'Leave', createLabel: 'Apply leave',
+  description: 'Apply → reporting manager / HR approves → marked on attendance → counted in payroll.',
+  columns: [
+    code,
+    { key: 'employee', label: 'Employee', render: nameCell((r) => r.employee?.name, (r) => r.employee?.designation), exportValue: (r) => r.employee?.name, hideWhenFixed: true },
+    { key: 'leaveType', label: 'Type' },
+    { key: 'from', label: 'Dates', render: (r) => (r.days > 1 ? `${fmtDate(r.from, 'dd MMM')} – ${fmtDate(r.to)}` : `${fmtDate(r.from)}${r.halfDay ? ' (half)' : ''}`) },
+    { key: 'days', label: 'Days', type: 'number' },
+    { key: 'reason', label: 'Reason', render: (r) => <span className="line-clamp-1 max-w-xs whitespace-normal">{r.reason}</span> },
+    { key: 'approvedBy.name', label: 'Approved by' },
+    { key: 'status', label: 'Status', type: 'status' },
+  ],
+  filters: [
+    { name: 'status', label: 'Status', options: C.LEAVE_STATUS },
+    { name: 'leaveType', label: 'Type', options: C.LEAVE_TYPES },
+    { name: 'employee', label: 'Employee', ref: REF.employee },
+  ],
+  canEditRow: (r) => r.status === 'Pending',
+  fields: [
+    { name: 'employee', label: 'Employee', type: 'ref', ref: REF.employee, span: 2, help: 'Leave blank to apply for yourself', hrOnly: true },
+    { name: 'leaveType', label: 'Leave type', type: 'select', options: C.LEAVE_TYPES, default: 'Casual Leave', required: true },
+    { name: 'halfDay', label: 'Duration', type: 'checkbox', checkboxLabel: 'Half day', default: false },
+    { name: 'from', label: 'From', type: 'date', required: true },
+    { name: 'to', label: 'To', type: 'date', showIf: (v) => !v.halfDay, help: 'Leave blank for a single day' },
+    { name: 'reason', label: 'Reason', type: 'textarea' },
+  ],
+  transform: (p) => ({ ...p, to: p.halfDay || !p.to ? p.from : p.to }),
+  // ctx.isHR / ctx.myEmployee come from the Leave page
+  rowActions: (r, ctx) => {
+    const mine = r.employee?._id === ctx.myEmployee;
+    return [
+      r.status === 'Pending' && (ctx.isHR || !mine) && { label: 'Approve', icon: CheckCircle2, onClick: () => go(ctx, `/leaves/${r._id}/approve`, null, 'Leave approved · marked on attendance') },
+      r.status === 'Pending' && (ctx.isHR || !mine) && { label: 'Reject', icon: XCircle, onClick: () => go(ctx, `/leaves/${r._id}/reject`, null, 'Leave rejected') },
+      ['Pending', 'Approved'].includes(r.status) && (ctx.isHR || mine) && { label: 'Cancel leave', icon: Ban, onClick: () => go(ctx, `/leaves/${r._id}/cancel`, null, 'Leave cancelled') },
+    ];
+  },
+};
+
+export const advances = {
+  key: 'advances', endpoint: '/advances', module: 'advances', icon: HandCoins,
+  title: 'Salary Advances', singular: 'Advance', createLabel: 'Give advance',
+  description: 'Paid out now (recorded in Payments), recovered from payroll in monthly instalments.',
+  columns: [
+    code,
+    { key: 'date', label: 'Date', type: 'date' },
+    { key: 'employee', label: 'Employee', render: nameCell((r) => r.employee?.name, (r) => r.employee?.designation), exportValue: (r) => r.employee?.name },
+    { key: 'amount', label: 'Amount', type: 'currency' },
+    { key: 'installment', label: 'Instalment', type: 'currency' },
+    { key: 'recovered', label: 'Recovered', type: 'currency' },
+    { key: 'balance', label: 'Balance', type: 'currency' },
+    { key: 'payment.code', label: 'Payment' },
+    { key: 'status', label: 'Status', render: (r) => <Badge tone={r.status === 'Open' ? 'amber' : 'green'} dot>{r.status === 'Open' ? 'Recovering' : 'Recovered'}</Badge> },
+  ],
+  filters: [{ name: 'status', label: 'Status', options: [{ value: 'Open', label: 'Recovering' }, { value: 'Closed', label: 'Recovered' }] }, { name: 'employee', label: 'Employee', ref: REF.employee }],
+  defaults: () => ({ date: new Date().toISOString() }),
+  canEditRow: (r) => r.recovered === 0,
+  fields: [
+    { name: 'employee', label: 'Employee', type: 'ref', ref: REF.employee, required: true, span: 2 },
+    { name: 'amount', label: 'Amount', type: 'currency', required: true },
+    { name: 'installment', label: 'Monthly recovery', type: 'currency', required: true },
+    { name: 'date', label: 'Date', type: 'date' },
+    { name: 'mode', label: 'Paid by', type: 'select', options: C.PAYMENT_MODES, default: 'Bank Transfer' },
+    { name: 'reason', label: 'Reason', type: 'textarea' },
+  ],
+  summary: (v) => (Number(v.amount) > 0 && Number(v.installment) > 0 ? [{ label: 'Recovered over', value: `${Math.ceil(v.amount / v.installment)} month(s)`, strong: true }] : []),
+};
+
+export const monthLabel = (m) => fmtDate(m ? `${m}-01T00:00:00` : null, 'MMMM yyyy');
+export const payroll = {
+  key: 'payroll', endpoint: '/payroll', module: 'payroll', icon: FileSpreadsheet,
+  title: 'Payroll', singular: 'Payroll', createLabel: 'Run payroll',
+  description: 'Salary from attendance + approved leave → approve → pay (salary payments, advance recovery).',
+  formDescription: 'Includes every employee on the rolls that month with their attendance, leave and advance recoveries.',
+  columns: [
+    code,
+    { key: 'month', label: 'Month', render: (r) => <span className="font-medium">{monthLabel(r.month)}</span>, exportValue: (r) => r.month },
+    { key: 'lines', label: 'Employees', render: (r) => r.lines?.length ?? 0, exportValue: (r) => r.lines?.length },
+    { key: 'gross', label: 'Gross', type: 'currency' },
+    { key: 'deductions', label: 'Deductions', type: 'currency' },
+    { key: 'net', label: 'Net pay', type: 'currency' },
+    { key: 'paidAt', label: 'Paid on', type: 'date' },
+    { key: 'status', label: 'Status', type: 'status' },
+  ],
+  filters: [{ name: 'status', label: 'Status', options: C.PAYROLL_STATUS }],
+  onRowClick: (r, ctx) => ctx.nav(`/hr/payroll/${r._id}`),
+  canEditRow: (r) => r.status === 'Draft',
+  defaults: () => ({ month: fmtDate(new Date(new Date().getFullYear(), new Date().getMonth() - 1, 1), 'yyyy-MM') }),
+  fields: [
+    { name: 'month', label: 'Month', type: 'month', required: true },
+    { name: 'notes', label: 'Notes', type: 'textarea' },
+  ],
+  afterCreate: (p, ctx) => ctx.nav(`/hr/payroll/${p._id}`),
 };
 
 /* =====================================================================

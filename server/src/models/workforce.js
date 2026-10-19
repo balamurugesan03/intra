@@ -36,6 +36,7 @@ const attendanceSchema = new mongoose.Schema(
     wage: { type: Number, default: 0 },
     remarks: String,
     markedBy: ref('User'),
+    payment: ref('Payment'), // set once the wage is settled
   },
   opts,
 );

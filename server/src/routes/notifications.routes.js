@@ -1,9 +1,10 @@
 import express from 'express';
-import { hasPermission } from '../config/permissions.js';
+import { hasPermission, isHR } from '../config/permissions.js';
 import { visibleProjectIds } from '../services/scope.js';
 import { stockLevels } from '../services/stock.js';
 import {
-  Task, Bill, Material, Project, Quotation, Room, MaterialRequest, PurchaseOrder, Lead, Measurement,
+  Task, Bill, Material, Project, Quotation, Room, MaterialRequest, PurchaseOrder, Lead, Measurement, Activity, Ticket, Employee, Leave,
+  Payroll,
 } from '../models/index.js';
 import { startOfDay, addDays, endOfDay } from '../utils/helpers.js';
 
@@ -160,6 +161,68 @@ router.get('/notifications', async (req, res) => {
           title: `Measurement ready to bill: ${m.code}`, message: `${m.project?.code} · ${m.measurementType} · ${money(m.total)}`,
           date: m.date, link: '/measurements',
         }))),
+    );
+  }
+
+  if (can('activities')) {
+    // Follow-ups with clients that have no open lead (lead follow-ups are covered above)
+    jobs.push(
+      Activity.find({ status: 'Open', lead: null, nextFollowUp: { $lte: endOfDay(today) } }).populate('client', 'name phone').lean()
+        .then((rows) => rows.forEach((a) => push({
+          type: 'activity', ref: a._id, severity: 'medium', category: 'Client follow-up',
+          title: `Follow up with ${a.client?.name}`, message: `${a.nextAction || a.subject} · ${a.client?.phone || ''}`, date: a.nextFollowUp, link: '/crm/activities?status=Open',
+        }))),
+    );
+  }
+
+  if (can('tickets')) {
+    const tf = u.role === 'Client' ? { client: u.client } : {};
+    jobs.push(
+      Ticket.find({ ...tf, status: { $in: ['Open', 'In Progress'] } }).populate('project', 'name code').lean()
+        .then((rows) => rows.forEach((t) => {
+          const late = t.dueDate && t.dueDate < today;
+          if (u.role !== 'Client' && !late && !['High', 'Critical'].includes(t.priority) && t.status !== 'Open') return;
+          push({
+            type: 'ticket', ref: t._id, severity: late || t.priority === 'Critical' ? 'high' : 'medium', category: 'Service ticket',
+            title: `${late ? 'Overdue: ' : ''}${t.title}`, message: `${t.code} · ${t.project?.name || ''} · ${t.status}`,
+            date: t.dueDate || t.createdAt, link: '/crm/tickets',
+          });
+        })),
+    );
+  }
+
+  if (can('leaves', 'edit')) {
+    // HR sees every pending leave; a manager sees their direct reports'
+    jobs.push(
+      (async () => {
+        let ef = {};
+        if (!isHR(u.role)) {
+          const me = await Employee.findOne({ user: u._id }).lean();
+          if (!me) return;
+          ef = { employee: { $in: await Employee.find({ reportingTo: me._id }).distinct('_id') } };
+        }
+        const rows = await Leave.find({ ...ef, status: 'Pending' }).populate('employee', 'name').lean();
+        rows.forEach((l) => push({
+          type: 'leave', ref: l._id, severity: 'medium', category: 'Approval pending',
+          title: `Leave approval: ${l.employee?.name}`, message: `${l.leaveType} · ${l.days} day(s) from ${l.from.toISOString().slice(0, 10)}`,
+          date: l.createdAt, link: '/hr/leaves?status=Pending',
+        }));
+      })(),
+    );
+  }
+
+  if (can('payroll', 'edit')) {
+    const prev = new Date(Date.UTC(today.getFullYear(), today.getMonth() - 1, 1)).toISOString().slice(0, 7);
+    jobs.push(
+      Promise.all([Payroll.findOne({ month: prev }).lean(), Employee.exists({ status: { $ne: 'Exited' } })]).then(([p, staff]) => {
+        if (!staff || p?.status === 'Paid') return;
+        push({
+          type: 'payroll', ref: prev, severity: 'medium', category: 'Payroll',
+          title: p ? `Payroll ${prev} is ${p.status} — salaries not paid yet` : `Run payroll for ${prev}`,
+          message: p ? `${p.code} · net ${money(p.net)}` : 'Attendance and leave for last month are ready to process',
+          date: today, link: p ? `/hr/payroll/${p._id}` : '/hr/payroll',
+        });
+      }),
     );
   }
 

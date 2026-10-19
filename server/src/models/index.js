@@ -7,6 +7,8 @@ export * from './project.js';
 export * from './inventory.js';
 export * from './workforce.js';
 export * from './finance.js';
+export * from './crm.js';
+export * from './hr.js';
 
 /* Single-document company settings (letterhead for quotations / invoices) */
 const settingSchema = new mongoose.Schema(

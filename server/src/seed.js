@@ -4,10 +4,11 @@ import mongoose from 'mongoose';
 import {
   User, Lead, Client, SiteVisit, Boq, Quotation, Project, Task, DailyReport, Room, Material, StockTxn,
   MaterialRequest, Vendor, PurchaseOrder, Worker, Attendance, Subcontractor, WorkOrder, Measurement, Bill,
-  Payment, Expense, Setting, Rfq,
+  Payment, Expense, Setting, Rfq, Activity, Ticket, Employee, StaffAttendance, Leave, Advance, Payroll,
 } from './models/index.js';
 import { Counter } from './models/plugins.js';
 import { recordStock } from './services/stock.js';
+import { buildPayrollLines, recoverAdvances } from './services/payroll.js';
 
 const day = (offset) => {
   const d = new Date();
@@ -42,6 +43,7 @@ async function run() {
   const acc = await mk('Lakshmi Narayanan', 'accounts@buildpro.in', 'Accountant', { designation: 'Accounts Manager' });
   const des = await mk('Sneha Iyer', 'designer@buildpro.in', 'Designer', { designation: 'Lead Interior Designer' });
   await mk('Ganesh P', 'store@buildpro.in', 'Store Manager', { designation: 'Store In-charge' });
+  const hr = await mk('Meena Krishnan', 'hr@buildpro.in', 'HR Manager', { designation: 'HR Manager' });
 
   /* ---------- Masters ---------- */
   const materials = await Material.insertMany(
@@ -381,14 +383,102 @@ async function run() {
   const pb2 = await Bill.create({ billType: 'Vendor', vendor: po2.vendor, project: p1._id, purchaseOrder: po2._id, partyInvoiceNo: 'CPH-7781', billDate: day(-22), dueDate: day(8), gstPercent: 18, items: po2.items.map((i) => ({ description: materials.find((m) => m._id.equals(i.material)).name, quantity: i.quantity, rate: i.rate, unit: materials.find((m) => m._id.equals(i.material)).unit })) });
   await pay(pb2, 'Vendor Payment', 100000, -15);
 
-  // Wages payout & expenses
-  await Payment.create({ category: 'Labour Wages', amount: 68000, project: p2._id, date: day(-7), mode: 'Cash', notes: 'Weekly wages', recordedBy: acc._id });
+  // Weekly wages settled from the muster (older days paid, last week still due) & expenses
+  for (const w of await Attendance.distinct('worker', { project: p2._id, date: { $lt: day(-7) } })) {
+    const rows = await Attendance.find({ project: p2._id, worker: w, date: { $lt: day(-7) }, wage: { $gt: 0 } });
+    const amount = rows.reduce((s, a) => s + a.wage, 0);
+    if (!amount) continue;
+    const wp = await Payment.create({ category: 'Labour Wages', worker: w, amount, project: p2._id, date: day(-7), mode: 'Cash', notes: 'Weekly wages', recordedBy: acc._id });
+    await Attendance.updateMany({ _id: { $in: rows.map((a) => a._id) } }, { payment: wp._id });
+  }
   const exps = [
     [p2, 'Transport', 'Tipper lorry – sand & metal', 18500, -50], [p2, 'Equipment Rent', 'Concrete mixer & vibrator – 10 days', 22000, -36],
     [p1, 'Transport', 'Plywood delivery', 3500, -24], [p3, 'Site Expense', 'Debris removal', 6500, -10], [p1, 'Food & Accommodation', 'Carpenter team lunch', 2800, -3],
     [p2, 'Permits & Fees', 'Building plan approval fees', 45000, -88], [p3, 'Utilities', 'Temporary power connection', 8000, -24],
   ];
   for (const [project, category, description, amount, d] of exps) await Expense.create({ project: project._id, category, description, amount, date: day(d), paidTo: 'Various', mode: 'Cash', recordedBy: acc._id });
+
+  /* ---------- CRM: follow-ups & after-sales service ---------- */
+  const acts = [
+    [leads[0], 'Email', 'Shared signed agreement copy', 'Project kick-off confirmed', -40],
+    [leads[3], 'Call', 'Discussed kitchen & bathroom scope', 'Wants a granite counter option in the quote', -9],
+    [leads[3], 'Meeting', 'Quotation walkthrough at site', 'Asked for 5% discount on bathroom fittings', -3, 1, 'Share revised quotation'],
+    [leads[4], 'Site Visit', 'Measured the 2BHK', 'Prefers walnut laminate finish', -12],
+    [leads[4], 'WhatsApp', 'Sent design references', 'Liked the pastel kitchen options', -1, 0, 'Confirm design concept'],
+    [leads[5], 'Call', 'Intro call – G+3 commercial', 'Architect to share structural drawings', -5, -1, 'Collect drawings'],
+  ];
+  for (const [lead, type, subject, outcome, d, next, nextAction] of acts) {
+    await Activity.updateMany({ lead: lead._id, status: 'Open' }, { status: 'Done' });
+    await Activity.create({ lead: lead._id, client: lead.client, type, subject, outcome, date: day(d), nextFollowUp: next == null ? undefined : day(next), nextAction, by: lead.assignedTo });
+  }
+  const snag = await Task.create({ project: p1._id, title: 'TKT: Wardrobe shutter alignment', area: 'Master Bedroom', priority: 'High', dueDate: day(2), assignedTo: ss._id, status: 'In Progress', progress: 40 });
+  await Ticket.create({ title: 'Wardrobe shutter alignment', client: p1.client, project: p1._id, category: 'Snag / Rework', priority: 'High', location: 'Master Bedroom', description: 'Left shutter rubs the frame while closing', status: 'In Progress', assignedTo: ss._id, raisedBy: pm._id, dueDate: day(2), task: snag._id });
+  await Ticket.create({ title: 'Paint peeling near balcony door', client: p4.client, project: p4._id, category: 'Warranty', priority: 'Medium', location: 'Balcony', description: 'Paint flaking after the rains', status: 'Open', assignedTo: se._id, raisedBy: pm._id, dueDate: day(5) });
+  await Ticket.create({ title: 'Touch-up in living room ceiling', client: p4.client, project: p4._id, category: 'Snag / Rework', priority: 'Low', location: 'Living room', status: 'Resolved', resolution: 'Touch-up done and approved by client', raisedBy: pm._id });
+
+  /* ---------- HR: employees, staff attendance, leave, advance, payroll ---------- */
+  const SALARY = {
+    'Super Admin': [90000, 'Management'], Admin: [60000, 'Management'], 'Project Manager': [55000, 'Projects'],
+    'Site Engineer': [28000, 'Site Execution'], 'Site Supervisor': [18000, 'Site Execution'], Estimator: [32000, 'Estimation'],
+    'Purchase Manager': [35000, 'Purchase'], Accountant: [30000, 'Accounts'], Designer: [38000, 'Design'],
+    'Store Manager': [20000, 'Stores'], 'HR Manager': [34000, 'HR & Admin'],
+  };
+  const emps = {};
+  for (const [i, u] of (await User.find({ role: { $in: Object.keys(SALARY) } }).sort('createdAt')).entries()) {
+    const [gross, department] = SALARY[u.role];
+    const basic = Math.round(gross * 0.5);
+    const hra = Math.round(gross * 0.2);
+    emps[u.role] = await Employee.create({
+      name: u.name, phone: u.phone, email: u.email, user: u._id, department, designation: u.designation, joiningDate: day(-420 + i * 25),
+      basic, hra, allowances: gross - basic - hra, esiApplicable: gross <= 21000, pan: 'AAAPL' + (1200 + i * 37) + 'K', uan: '1009' + (55000000 + i * 1373),
+      bankName: 'HDFC Bank', bankAccount: '5010' + (2000000 + i * 7311), ifsc: 'HDFC0001234',
+    });
+  }
+  const reportsTo = {
+    'Site Engineer': 'Project Manager', 'Site Supervisor': 'Project Manager', Designer: 'Project Manager', Estimator: 'Project Manager',
+    'Project Manager': 'Admin', 'Purchase Manager': 'Admin', Accountant: 'Admin', 'Store Manager': 'Admin', 'HR Manager': 'Admin', Admin: 'Super Admin',
+  };
+  for (const [role, mgr] of Object.entries(reportsTo)) await Employee.updateOne({ _id: emps[role]._id }, { reportingTo: emps[mgr]._id });
+
+  // Muster from the 1st of last month to yesterday (Sundays off, a few absences / half days)
+  const lastMonth = new Date(Date.UTC(day(0).getUTCFullYear(), day(0).getUTCMonth() - 1, 1));
+  const marks = [];
+  for (let d = new Date(lastMonth); d < day(0); d = new Date(+d + 864e5)) {
+    for (const [i, e] of Object.values(emps).entries()) {
+      const off = d.getUTCDay() === 0;
+      const r = (d.getUTCDate() * 7 + i * 3) % 23;
+      marks.push({ date: d, employee: e._id, status: off ? 'Week Off' : r === 0 ? 'Absent' : r === 5 ? 'Half Day' : 'Present', checkIn: off ? undefined : `09:${10 + i}`, checkOut: off ? undefined : `18:${20 + i}`, markedBy: hr._id });
+    }
+  }
+  await StaffAttendance.insertMany(marks);
+
+  const lm = (n) => new Date(+lastMonth + (n - 1) * 864e5);
+  const applyLeave = async (role, leaveType, from, to, status, reason) => {
+    const l = await Leave.create({ employee: emps[role]._id, leaveType, from, to, status, reason, ...(status === 'Approved' ? { approvedBy: hr._id, approvedAt: from } : {}) });
+    if (status !== 'Approved') return;
+    for (let d = new Date(l.from); d <= l.to; d = new Date(+d + 864e5)) {
+      await StaffAttendance.findOneAndUpdate({ date: d, employee: l.employee }, { status: 'Leave', leave: l._id, markedBy: hr._id }, { upsert: true });
+    }
+  };
+  await applyLeave('Site Engineer', 'Casual Leave', lm(10), lm(11), 'Approved', 'Family function');
+  await applyLeave('Site Supervisor', 'Loss of Pay', lm(18), lm(18), 'Approved', 'Personal work');
+  await applyLeave('Designer', 'Sick Leave', day(4), day(5), 'Pending', 'Medical appointment');
+  await applyLeave('Estimator', 'Earned Leave', day(10), day(14), 'Pending', 'Family vacation');
+
+  const advance = await Advance.create({ employee: emps['Site Supervisor']._id, date: day(-50), amount: 12000, installment: 3000, mode: 'Cash', reason: 'Medical expense' });
+  advance.payment = (await Payment.create({ category: 'Salary Advance', employee: advance.employee, amount: advance.amount, date: advance.date, mode: 'Cash', notes: `Salary advance ${advance.code}`, recordedBy: acc._id }))._id;
+  await advance.save();
+
+  // Last month's payroll: run → approve → pay on the 1st (salary payments + advance recovery)
+  const month = lastMonth.toISOString().slice(0, 7);
+  const payDay = new Date(Date.UTC(day(0).getUTCFullYear(), day(0).getUTCMonth(), 1));
+  const payroll = await Payroll.create({ month, lines: await buildPayrollLines(month), status: 'Approved', approvedBy: hr._id, approvedAt: payDay });
+  for (const l of payroll.lines) {
+    l.payment = (await Payment.create({ category: 'Salary', employee: l.employee, amount: l.net, date: payDay, mode: 'Bank Transfer', notes: `Salary ${month} (${payroll.code})`, recordedBy: acc._id }))._id;
+  }
+  payroll.set({ status: 'Paid', paidAt: payDay });
+  await payroll.save();
+  await recoverAdvances(payroll);
 
   console.log('\n✔ Seed complete. Login with any of these (password: password123):');
   for (const u of await User.find().sort('createdAt')) console.log(`   ${u.role.padEnd(18)} ${u.email}`);

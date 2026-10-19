@@ -5,7 +5,7 @@ import { toast } from 'sonner';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import {
   LayoutDashboard, ListChecks, ClipboardList, Boxes, HardHat, Ruler, IndianRupee, Sofa, Images, Pencil, MapPin,
-  CalendarDays, User, Users, FileText, ChevronDown, AlertTriangle, Briefcase,
+  CalendarDays, User, Users, FileText, ChevronDown, AlertTriangle, Briefcase, LifeBuoy,
 } from 'lucide-react';
 import { useApi } from '../lib/hooks';
 import { useAuth } from '../context/AuthContext';
@@ -20,6 +20,7 @@ import { PROJECT_STATUS } from '../lib/constants';
 import { fmtDate, money, moneyShort, number } from '../lib/format';
 import InteriorBoard from './Interior';
 import DocumentsBoard from './Documents';
+import { ticketsFor } from './Tickets';
 
 const attendanceConfig = {
   key: 'attendance', endpoint: '/attendance', module: 'attendance', title: 'Attendance', singular: 'Attendance', creatable: false, editable: false,
@@ -234,6 +235,7 @@ export default function ProjectDetail() {
     (can('bills') || can('payments')) && { value: 'finance', label: 'Finance', icon: IndianRupee },
     can('rooms') && { value: 'interior', label: 'Interior', icon: Sofa },
     can('documents') && { value: 'documents', label: 'Documents', icon: Images },
+    can('tickets') && { value: 'service', label: 'Service', icon: LifeBuoy },
   ].filter(Boolean);
 
   return (
@@ -299,6 +301,7 @@ export default function ProjectDetail() {
       )}
       {tab === 'interior' && <InteriorBoard projectId={id} embedded />}
       {tab === 'documents' && <DocumentsBoard projectId={id} embedded />}
+      {tab === 'service' && <ResourcePage embedded config={ticketsFor(isExternal)} fixed={fixed} title="Service & complaints" />}
 
       <Drawer open={editing} onClose={() => setEditing(false)} title={`Edit ${project.code}`}
         footer={<><Button variant="secondary" onClick={() => setEditing(false)}>Cancel</Button><Button type="submit" form="resource-form" loading={saving}>Save changes</Button></>}>

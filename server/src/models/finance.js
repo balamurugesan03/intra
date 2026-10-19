@@ -76,6 +76,7 @@ const paymentSchema = new mongoose.Schema(
     vendor: ref('Vendor'),
     subcontractor: ref('Subcontractor'),
     worker: ref('Worker'),
+    employee: ref('Employee'),
     amount: { type: Number, required: true, min: 0.01 },
     date: { type: Date, default: Date.now },
     mode: { type: String, enum: PAYMENT_MODES, default: 'Bank Transfer' },

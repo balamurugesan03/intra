@@ -23,15 +23,24 @@ export const WORK_ORDER_STATUS = ['Draft', 'Active', 'Completed', 'Terminated'];
 export const MEASUREMENT_STATUS = ['Draft', 'Verified', 'Billed'];
 export const BILL_TYPES = ['Client', 'Vendor', 'Contractor'];
 export const BILL_STATUS = ['Draft', 'Issued', 'Partially Paid', 'Paid', 'Cancelled'];
-export const PAYMENT_CATEGORIES = ['Client Receipt', 'Client Advance', 'Vendor Payment', 'Contractor Payment', 'Labour Wages', 'Other Income', 'Other Payment'];
+export const PAYMENT_CATEGORIES = ['Client Receipt', 'Client Advance', 'Vendor Payment', 'Contractor Payment', 'Labour Wages', 'Salary', 'Salary Advance', 'Other Income', 'Other Payment'];
 export const PAYMENT_MODES = ['Cash', 'Bank Transfer', 'UPI', 'Cheque', 'Card'];
 export const EXPENSE_CATEGORIES = ['Transport', 'Equipment Rent', 'Site Expense', 'Food & Accommodation', 'Utilities', 'Permits & Fees', 'Miscellaneous'];
 export const ROOM_TYPES = ['Living Room', 'Master Bedroom', 'Bedroom', 'Kids Bedroom', 'Kitchen', 'Dining', 'Bathroom', 'Pooja Room', 'Office', 'Balcony', 'Foyer', 'Other'];
 export const DESIGN_STATUS = ['Concept', 'In Design', 'Pending Approval', 'Approved', 'Changes Requested'];
 export const DOCUMENT_CATEGORIES = ['Site Photo', 'Before', 'After', 'Drawing', 'Floor Plan', '3D Design', 'Agreement', 'Invoice', 'Receipt', 'Approval', 'Other'];
+export const ACTIVITY_TYPES = ['Call', 'Meeting', 'WhatsApp', 'Email', 'Site Visit', 'Note'];
+export const TICKET_CATEGORIES = ['Complaint', 'Snag / Rework', 'Warranty', 'Service Request', 'Feedback'];
+export const TICKET_STATUS = ['Open', 'In Progress', 'Resolved', 'Closed'];
+export const DEPARTMENTS = ['Management', 'Projects', 'Site Execution', 'Design', 'Estimation', 'Sales', 'Purchase', 'Stores', 'Accounts', 'HR & Admin'];
+export const EMPLOYEE_STATUS = ['Active', 'On Notice', 'Exited'];
+export const STAFF_ATTENDANCE_STATUS = ['Present', 'Half Day', 'Absent', 'Leave', 'Holiday', 'Week Off'];
+export const LEAVE_TYPES = ['Casual Leave', 'Sick Leave', 'Earned Leave', 'Comp Off', 'Loss of Pay'];
+export const LEAVE_STATUS = ['Pending', 'Approved', 'Rejected', 'Cancelled'];
+export const PAYROLL_STATUS = ['Draft', 'Approved', 'Paid'];
 export const ROLES = [
   'Super Admin', 'Admin', 'Project Manager', 'Site Engineer', 'Site Supervisor', 'Estimator', 'Purchase Manager',
-  'Accountant', 'Designer', 'Store Manager', 'Contractor', 'Worker', 'Client',
+  'Accountant', 'Designer', 'Store Manager', 'HR Manager', 'Contractor', 'Worker', 'Client',
 ];
 
 /** Tone for every status value used across modules */
@@ -60,5 +69,10 @@ export const STATUS_TONE = {
   // interior
   Concept: 'slate', 'In Design': 'indigo', 'Pending Approval': 'amber', 'Changes Requested': 'red',
   Submitted: 'blue', Reviewed: 'green',
+  // crm
+  Open: 'amber', Resolved: 'green', Call: 'blue', Meeting: 'violet', WhatsApp: 'green', Email: 'cyan', Note: 'slate',
+  Complaint: 'red', 'Snag / Rework': 'amber', Warranty: 'violet', 'Service Request': 'blue', Feedback: 'cyan',
+  // hr
+  Leave: 'violet', Holiday: 'cyan', 'Week Off': 'slate', 'On Notice': 'amber', Exited: 'slate',
   Construction: 'amber', Interior: 'violet', Renovation: 'cyan',
 };

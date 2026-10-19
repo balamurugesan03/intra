@@ -19,6 +19,7 @@ const leadSchema = new mongoose.Schema(
     budget: Number,
     status: { type: String, enum: LEAD_STATUS, default: 'New' },
     followUpDate: Date,
+    lostReason: String,
     assignedTo: ref('User'),
     client: ref('Client'),
     notes: String,

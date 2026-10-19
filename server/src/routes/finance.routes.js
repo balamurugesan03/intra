@@ -2,7 +2,7 @@ import express from 'express';
 import { crud } from '../utils/crud.js';
 import { guard } from '../middleware/auth.js';
 import { scopes } from '../services/scope.js';
-import { Bill, Payment, Expense, Project } from '../models/index.js';
+import { Bill, Payment, Expense, Project, Attendance, Advance, Payroll } from '../models/index.js';
 import { ApiError, round2 } from '../utils/helpers.js';
 
 const router = express.Router();
@@ -54,10 +54,11 @@ router.use(
       P('vendor'),
       P('subcontractor'),
       P('worker'),
+      P('employee'),
       P('recordedBy', 'name'),
     ],
     search: ['code', 'reference', 'notes'],
-    filters: ['direction', 'category', 'project', 'mode', 'bill', 'client', 'vendor', 'subcontractor', 'worker'],
+    filters: ['direction', 'category', 'project', 'mode', 'bill', 'client', 'vendor', 'subcontractor', 'worker', 'employee'],
     dateField: 'date',
     sort: '-date',
     sanitize: (body, req, isNew) => (isNew ? { ...body, recordedBy: req.user._id } : body),
@@ -72,6 +73,12 @@ router.use(
       ]);
       const remaining = round2(bill.total - (others[0]?.sum || 0));
       if (doc.amount > remaining + 0.5) throw new ApiError(400, `Amount exceeds bill balance (₹${remaining.toLocaleString('en-IN')})`);
+    },
+    beforeDelete: async (doc) => {
+      if (await Advance.exists({ payment: doc._id })) throw new ApiError(400, 'This is a salary advance payout. Delete the advance instead.');
+      if (await Payroll.exists({ 'lines.payment': doc._id })) throw new ApiError(400, 'This salary was paid through payroll and cannot be deleted');
+      // Deleting a wage payout makes those attendance days payable again
+      await Attendance.updateMany({ payment: doc._id }, { $unset: { payment: 1 } });
     },
   }),
 );
